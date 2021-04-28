@@ -1,46 +1,37 @@
 """Main DQN agent."""
 
+import copy
+import tqdm
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+import gym
+
+
 class DQNAgent:
     """Class implementing DQN.
 
-    This is a basic outline of the functions/parameters you will need
-    in order to implement the DQNAgnet. This is just to get you
-    started. You may need to tweak the parameters, add new ones, etc.
-
-    Feel free to change the functions and funciton parameters that the
-    class provides.
-
-    We have provided docstrings to go along with our suggested API.
-
     Parameters
     ----------
-    q_network: keras.models.Model
-      Your Q-network model.
-    preprocessor: deeprl_hw2.core.Preprocessor
-      The preprocessor class. See the associated classes for more
-      details.
+    q_network: nn.Model
+        Q-network model.
     memory: deeprl_hw2.core.Memory
-      Your replay memory.
+        Replay memory.
     gamma: float
-      Discount factor.
-    target_update_freq: float
-      Frequency to update the target network. You can either provide a
-      number representing a soft target update (see utils.py) or a
-      hard target update (see utils.py and Atari paper.)
+        Discount factor.
+    target_update_freq: int
+      Update the target network per (target_update_freq) train steps
     num_burn_in: int
-      Before you begin updating the Q-network your replay memory has
+      Before begin updating the Q-network the replay memory has
       to be filled up with some number of samples. This number says
       how many.
     train_freq: int
-      How often you actually update your Q-Network. Sometimes
-      stability is improved if you collect a couple samples for your
-      replay memory, for every Q-network update that you run.
+      train the Q-Network per (train_freq) steps.
     batch_size: int
-      How many samples in each minibatch.
+      How many samples in each mini-batch.
     """
     def __init__(self,
                  q_network,
-                 preprocessor,
                  memory,
                  policy,
                  gamma,
@@ -48,106 +39,113 @@ class DQNAgent:
                  num_burn_in,
                  train_freq,
                  batch_size):
-        pass
+        self.q_network = q_network
+        self.memory = memory
+        self.policy = policy
+        self.gamma = gamma
+        self.target_update_freq = target_update_freq
+        self.num_burn_in = num_burn_in
+        self.train_freq = train_freq
+        self.batch_size = batch_size
 
-    def compile(self, optimizer, loss_func):
-        """Setup all of the TF graph variables/ops.
-
-        This is inspired by the compile method on the
-        keras.models.Model class.
-
-        This is a good place to create the target network, setup your
-        loss function and any placeholders you might need.
-        
-        You should use the mean_huber_loss function as your
-        loss_function. You can also experiment with MSE and other
-        losses.
-
-        The optimizer can be whatever class you want. We used the
-        keras.optimizers.Optimizer class. Specifically the Adam
-        optimizer.
-        """
-        pass
-
-    def calc_q_values(self, state):
-        """Given a state (or batch of states) calculate the Q-values.
-
-        Basically run your network on these states.
-
-        Return
-        ------
-        Q-values for the state(s)
-        """
-        pass
-
-    def select_action(self, state, **kwargs):
-        """Select the action based on the current state.
-
-        You will probably want to vary your behavior here based on
-        which stage of training your in. For example, if you're still
-        collecting random samples you might want to use a
-        UniformRandomPolicy.
-
-        If you're testing, you might want to use a GreedyEpsilonPolicy
-        with a low epsilon.
-
-        If you're training, you might want to use the
-        LinearDecayGreedyEpsilonPolicy.
-
-        This would also be a good place to call
-        process_state_for_network in your preprocessor.
-
-        Returns
-        --------
-        selected action
-        """
-        pass
-
-    def update_policy(self):
-        """Update your policy.
-
-        Behavior may differ based on what stage of training your
-        in. If you're in training mode then you should check if you
-        should update your network parameters based on the current
-        step and the value you set for train_freq.
-
-        Inside, you'll want to sample a minibatch, calculate the
-        target values, update your network, and then update your
-        target values.
-
-        You might want to return the loss and other metrics as an
-        output. They can help you monitor how training is going.
-        """
-        pass
+        self.train_num = 0  # toe record num of self.train is called
 
     def fit(self, env, num_iterations, max_episode_length=None):
-        """Fit your model to the provided environment.
-
-        Its a good idea to print out things like loss, average reward,
-        Q-values, etc to see if your agent is actually improving.
-
-        You should probably also periodically save your network
-        weights and any other useful info.
-
-        This is where you should sample actions from your network,
-        collect experience samples and add them to your replay memory,
-        and update your network parameters.
+        """Fit the model to the provided environment.
 
         Parameters
         ----------
         env: gym.Env
-          This is your Atari environment. You should wrap the
-          environment using the wrap_atari_env function in the
-          utils.py
+          wrapped Atari environment.
         num_iterations: int
-          How many samples/updates to perform.
+          How many episodes to perform.
         max_episode_length: int
           How long a single episode should last before the agent
-          resets. Can help exploration.
+          resets.
         """
-        pass
 
-    def evaluate(self, env, num_episodes, max_episode_length=None):
+        # Initialize --------------------------------------------------------------------------
+        rewards = []  # record rewards for plot
+
+        self.memory.clear()
+        q1 = copy.deepcopy(self.q_network).cuda()
+        q2 = copy.deepcopy(self.q_network).cuda()
+        optimizer = torch.optim.RMSprop(q2.parameters(), lr=1e-4)  # todo: double DQN, lr TUNING
+        # --------------------------------------------------------------------------------------
+
+        for iteration in tqdm.tqdm(range(num_iterations)):
+            state = env.reset()
+            reward_per_episode = []
+            for episode in range(max_episode_length):
+                q_values = q1(torch.from_numpy(state.astype(np.float64)).cuda().unsqueeze(0).permute(0, 3, 1, 2))
+                action = self.policy.select_action(q_values.cpu().detach().numpy())
+                new_state, reward, done, info = env.step(action)
+                self.memory.append(state, action, reward)
+                reward_per_episode.append(reward)
+                if done or (episode == max_episode_length - 1):
+                    self.memory.end_episode(new_state, done)
+                    rewards.append(np.mean(reward_per_episode))
+                    break
+
+            if (len(self.memory) > self.num_burn_in) and (iteration % self.train_freq == 0):
+
+                train_samples = self.memory.sample(batch_size=self.batch_size)
+                q1, q2 = self.train(q1, q2, train_samples, optimizer)
+
+            if iteration % 50 == 0:
+                plot_and_print(rewards, smooth_length=10)
+
+    def train(self, q1, q2, train_samples, optimizer):
+        """
+        one gradient descent step for DQN
+        :param q1: q_network with gradient descent;
+        :param q2: target network
+        :param train_samples: list of [st, at, rt, st+1(s')]
+        :param optimizer torch.optim
+        :return: q1, q2
+        """
+        q1.train()
+        q2.train()
+        st = torch.from_numpy(np.array([sample[0] for sample in train_samples]).astype(np.float64).transpose((0, 3, 1, 2))).cuda()
+        # st [batch_size, 4, 84, 84]
+        s_prime = torch.from_numpy(np.array([sample[3] for sample in train_samples]).astype(np.float64).transpose((0, 3, 1, 2))).cuda()
+        # s_prime [batch_size, 4, 84, 84]
+        at = torch.from_numpy(np.array([sample[1] for sample in train_samples]).astype(np.int64)).cuda()
+        # at [batch_size,]
+        rt = torch.from_numpy(np.array([sample[2] for sample in train_samples]).astype(np.float64)).cuda()
+        # rt [batch_size,]
+        q_target = rt + self.gamma * torch.max(q2(s_prime), dim=-1)[0]  # [batch_size]
+        q_value = torch.gather(input=q1(st), dim=-1, index=at.unsqueeze(-1))
+        loss = torch.mean((q_target.detach() - q_value) ** 2)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # DQN: update the target network(q2) per target_update_freq steps
+        if self.train_num % self.target_update_freq == 0:
+            q2 = q1
+        self.train_num += 1
+
+        q1.eval()
+        q2.eval()
+
+        return q1, q2
+
+
+def plot_and_print(rewards, smooth_length):
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    ax2 = ax1.twinx()
+    l = smooth_length # len(train_loader)
+    ax2.plot(np.convolve(np.array(rewards), np.ones(l) / l)[l:-l], color='r')
+    print('rewards', '%.5g' % (np.mean(rewards[-l:])))
+    ax2.legend(['rewards'], loc='upper right')
+    plt.savefig('trainning_curve.png')
+    plt.close()
+
+
+def evaluate(self, env, num_episodes, max_episode_length=None):
         """Test your agent with a provided environment.
         
         You shouldn't update your network parameters here. Also if you
