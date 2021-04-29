@@ -38,10 +38,10 @@ def main():  # noqa: D103
     env = wrap_deepmind(env, episode_life=False, clip_rewards=True, frame_stack=True, scale=False)
     model = Model(in_channels=4, n_actions=n_actions)
     memory = ReplayMemory(max_size=args.memory_size)
-    policy = LinearDecayGreedyEpsilonPolicy(n_actions=n_actions, start_value=1, end_value=0.1, num_steps=500000)
+    policy = LinearDecayGreedyEpsilonPolicy(n_actions=n_actions, start_value=1, end_value=0.05, num_steps=2000000)
     agent = DQNAgent(q_network=model, memory=memory, gamma=0.99, target_update_freq=100,
-                     num_burn_in=50000, batch_size=64, policy=policy, train_freq=1)
-    agent.fit(env, num_iterations=5000000, max_episode_length=500)
+                     num_burn_in=100000, batch_size=64, policy=policy, train_freq=1)
+    agent.fit(env, num_iterations=100000, max_episode_length=500)
 
 
 if __name__ == '__main__':

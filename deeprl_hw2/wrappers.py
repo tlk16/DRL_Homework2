@@ -1,7 +1,10 @@
 """
 Adapted from OpenAI Baselines
 https://github.com/openai/baselines/blob/master/baselines/common/atari_wrappers.py
+
+Wrappers are used to wrap frames into 84 * 84 and stack 4 frames together.
 """
+
 import numpy as np
 from collections import deque
 import gym
@@ -174,7 +177,7 @@ def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, 
     """Configure environment for DeepMind-style Atari.
     """
     if episode_life:
-        env = EpisodicLifeEnv(env)  # todo: what's EpisodicLifeEnv
+        env = EpisodicLifeEnv(env)
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetEnv(env)
     env = WarpFrame(env)
@@ -188,8 +191,9 @@ def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, 
 
 
 if __name__ == "__main__":
+    # test wrappers
     env = gym.make('SpaceInvaders-v0')
-    # env = wrap_deepmind(env, episode_life=False, clip_rewards=False, frame_stack=False, scale=False)
+    env = wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True)
     env.reset()
     print(env.action_space)
     print(env.observation_space)
@@ -198,9 +202,7 @@ if __name__ == "__main__":
         action = env.action_space.sample()
         obs, reward, done, info = env.step(action)  # take a random action
         env.render()
-        # print(action, obs.shape, reward, done, info)
-        if abs(reward) > 0.0:
-            print(reward)
+        print(action, obs.shape, reward, done, info)
         if done:
             env.reset()
     env.close()

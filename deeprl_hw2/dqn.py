@@ -68,9 +68,9 @@ class DQNAgent:
         rewards = []  # record rewards for plot
 
         self.memory.clear()
-        q1 = copy.deepcopy(self.q_network).cuda()
-        q2 = copy.deepcopy(self.q_network).cuda()
-        optimizer = torch.optim.RMSprop(q2.parameters(), lr=1e-4)  # todo: double DQN, lr TUNING
+        q1 = copy.deepcopy(self.q_network).cuda()  # For DQN， q1 is the online network
+        q2 = copy.deepcopy(self.q_network).cuda()  # For DQN, q2 is the target network
+        optimizer = torch.optim.RMSprop(q1.parameters(), lr=1e-4)  # todo: double DQN, lr TUNING
         # --------------------------------------------------------------------------------------
 
         for iteration in tqdm.tqdm(range(num_iterations)):
@@ -86,13 +86,14 @@ class DQNAgent:
                     self.memory.end_episode(new_state, done)
                     rewards.append(np.mean(reward_per_episode))
                     break
+                state = new_state
 
             if (len(self.memory) > self.num_burn_in) and (iteration % self.train_freq == 0):
 
                 train_samples = self.memory.sample(batch_size=self.batch_size)
                 q1, q2 = self.train(q1, q2, train_samples, optimizer)
 
-            if iteration % 50 == 0:
+            if iteration % 100 == 0:
                 plot_and_print(rewards, smooth_length=10)
 
     def train(self, q1, q2, train_samples, optimizer):
@@ -124,7 +125,7 @@ class DQNAgent:
 
         # DQN: update the target network(q2) per target_update_freq steps
         if self.train_num % self.target_update_freq == 0:
-            q2 = q1
+            q2 = copy.deepcopy(q1).cuda()
         self.train_num += 1
 
         q1.eval()
