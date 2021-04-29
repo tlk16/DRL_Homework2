@@ -124,7 +124,7 @@ class DQNAgent:
                                rt + self.gamma * torch.max(q2(s_prime), dim=-1)[0],
                                rt)  # [batch_size]
         q_value = torch.gather(input=q1(st), dim=-1, index=at.unsqueeze(-1))
-        loss = torch.nn.functional.smooth_l1_loss(q_value, q_target.detach())
+        loss = torch.mean((q_value - q_target.detach()) ** 2)
 
         optimizer.zero_grad()
         loss.backward()
