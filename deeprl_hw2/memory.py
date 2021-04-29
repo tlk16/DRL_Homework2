@@ -100,12 +100,14 @@ class ReplayMemory:
         while len(samples) < batch_size:
             index = random.randint(0, max_index)
             if len(self.memory[index]) == 3:
-                samples.append(self.memory[index] + [self.memory[(index + 1) % self.max_size][0]])
-                # [st, at, rt] + [st+1])
+                terminal = len(self.memory[(index + 1) % self.max_size]) == 2
+                samples.append(self.memory[index] + [self.memory[(index + 1) % self.max_size][0], terminal])
+                # [st, at, rt] + [st+1, terminal])
         return samples
 
     def clear(self):
         self.memory = [[] for _ in range(self.max_size)]
+        self.next_index = 0
 
     def __len__(self):
         if len(self.memory[-1]) > 0:

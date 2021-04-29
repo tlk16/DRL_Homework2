@@ -72,7 +72,6 @@ class LinearDecayGreedyEpsilonPolicy(Policy):
         else:
             return q_values.squeeze().argmax(axis=0).item()
 
-
     def reset(self):
         """Start the decay over at the start value."""
         self.epsilon = self.start_value

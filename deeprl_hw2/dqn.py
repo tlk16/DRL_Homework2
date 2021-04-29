@@ -68,15 +68,17 @@ class DQNAgent:
         rewards = []  # record rewards for plot
 
         self.memory.clear()
-        q1 = copy.deepcopy(self.q_network).cuda()  # For DQN， q1 is the online network
-        q2 = copy.deepcopy(self.q_network).cuda()  # For DQN, q2 is the target network
-        optimizer = torch.optim.RMSprop(q1.parameters(), lr=1e-4)  # todo: double DQN, lr TUNING
+        self.policy.reset()
+        q1 = copy.deepcopy(self.q_network.cpu()).cuda()  # For DQN， q1 is the online network
+        q2 = copy.deepcopy(self.q_network.cpu()).cuda()  # For DQN, q2 is the target network
+        optimizer = torch.optim.Adam(q1.parameters(), lr=0.0000625, eps=1.5e-4)  # todo: double DQN, lr TUNING
         # --------------------------------------------------------------------------------------
 
         for iteration in tqdm.tqdm(range(num_iterations)):
             state = env.reset()
             reward_per_episode = []
             for episode in range(max_episode_length):
+                # todo: use q1 or q2 to choose actions
                 q_values = q1(torch.from_numpy(state.astype(np.float64)).cuda().unsqueeze(0).permute(0, 3, 1, 2))
                 action = self.policy.select_action(q_values.cpu().detach().numpy())
                 new_state, reward, done, info = env.step(action)
@@ -84,24 +86,24 @@ class DQNAgent:
                 reward_per_episode.append(reward)
                 if done or (episode == max_episode_length - 1):
                     self.memory.end_episode(new_state, done)
-                    rewards.append(np.mean(reward_per_episode))
+                    rewards.append(np.sum(reward_per_episode))
                     break
                 state = new_state
 
-            if (len(self.memory) > self.num_burn_in) and (iteration % self.train_freq == 0):
-
-                train_samples = self.memory.sample(batch_size=self.batch_size)
-                q1, q2 = self.train(q1, q2, train_samples, optimizer)
+                if (len(self.memory) > self.num_burn_in) and (episode % self.train_freq == 0):
+                    # todo: episode can't be larger than typical episode_length.
+                    train_samples = self.memory.sample(batch_size=self.batch_size)
+                    q1, q2 = self.train(q1, q2, train_samples, optimizer)
 
             if iteration % 100 == 0:
-                plot_and_print(rewards, smooth_length=10)
+                plot_and_print(rewards, smooth_length=50)
 
     def train(self, q1, q2, train_samples, optimizer):
         """
         one gradient descent step for DQN
         :param q1: q_network with gradient descent;
         :param q2: target network
-        :param train_samples: list of [st, at, rt, st+1(s')]
+        :param train_samples: list of [st, at, rt, st+1(s'), terminal]
         :param optimizer torch.optim
         :return: q1, q2
         """
@@ -115,17 +117,24 @@ class DQNAgent:
         # at [batch_size,]
         rt = torch.from_numpy(np.array([sample[2] for sample in train_samples]).astype(np.float64)).cuda()
         # rt [batch_size,]
-        q_target = rt + self.gamma * torch.max(q2(s_prime), dim=-1)[0]  # [batch_size]
+        terminal = torch.from_numpy(np.array([sample[4] for sample in train_samples]).astype(np.int64)).cuda()
+        # terminal [batch_size,]
+
+        q_target = torch.where(terminal == 0,
+                               rt + self.gamma * torch.max(q2(s_prime), dim=-1)[0],
+                               rt)  # [batch_size]
         q_value = torch.gather(input=q1(st), dim=-1, index=at.unsqueeze(-1))
-        loss = torch.mean((q_target.detach() - q_value) ** 2)
+        loss = torch.nn.functional.smooth_l1_loss(q_value, q_target.detach())
 
         optimizer.zero_grad()
         loss.backward()
+        for param in q1.parameters():
+            param.grad.data.clamp_(-1, 1)
         optimizer.step()
 
         # DQN: update the target network(q2) per target_update_freq steps
         if self.train_num % self.target_update_freq == 0:
-            q2 = copy.deepcopy(q1).cuda()
+            q2.load_state_dict(q1.state_dict())
         self.train_num += 1
 
         q1.eval()
