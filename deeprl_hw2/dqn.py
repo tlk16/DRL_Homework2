@@ -74,6 +74,9 @@ class DQNAgent:
         q2 = copy.deepcopy(self.q_network.cpu()).cuda()  # For DQN, q2 is the target network
         optimizer = torch.optim.Adam(q1.parameters(), lr=0.0000625, eps=1.5e-4)  # todo: double DQN, lr TUNING
         # --------------------------------------------------------------------------------------
+        #print("the shape of state is:")
+        #state = env.reset()
+        #print(state.shape)
 
         for iteration in tqdm.tqdm(range(num_iterations)):
             state = env.reset()
@@ -83,6 +86,7 @@ class DQNAgent:
                 q_values = q1(torch.from_numpy(state.astype(np.float64)).cuda().unsqueeze(0).permute(0, 3, 1, 2))
                 action = self.policy.select_action(q_values.cpu().detach().numpy())
                 new_state, reward, done, info = env.step(action)
+                print(new_state.shape)
                 self.memory.append(state, action, reward)
                 reward_per_episode.append(reward)
                 if done or (episode == max_episode_length - 1):
