@@ -79,7 +79,7 @@ def optimize_model(train):
     optimizer.step()
 
 def evaluate(step, policy_net, device, env, n_actions, eps=0.05, num_episode=5):
-    env = wrap_deepmind(env)
+    env = wrap_deepmind(env, clip_rewards=True)
     sa = m.ActionSelector(eps, eps, policy_net, EPS_DECAY, n_actions, device)
     e_rewards = []
     q = deque(maxlen=5)

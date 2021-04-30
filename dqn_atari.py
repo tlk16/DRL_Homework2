@@ -40,7 +40,7 @@ def main():  # noqa: D103
     memory = ReplayMemory(max_size=args.memory_size)
     policy = LinearDecayGreedyEpsilonPolicy(n_actions=n_actions, start_value=1, end_value=0.1, num_steps=1000000)
     agent = DQNAgent(q_network=model, memory=memory, gamma=0.99, target_update_freq=1000,
-                     num_burn_in=200000, batch_size=64, policy=policy, train_freq=8)
+                     num_burn_in=200000, batch_size=256, policy=policy, train_freq=32)
     agent.fit(env, num_iterations=100000, max_episode_length=10000)
 
 

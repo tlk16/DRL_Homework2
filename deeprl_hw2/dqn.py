@@ -66,6 +66,7 @@ class DQNAgent:
 
         # Initialize --------------------------------------------------------------------------
         rewards = []  # record rewards for plot
+        losses = []   # record loss for plot
 
         self.memory.clear()
         self.policy.reset()
@@ -93,10 +94,11 @@ class DQNAgent:
                 if (len(self.memory) > self.num_burn_in) and (episode % self.train_freq == 0):
                     # todo: episode can't be larger than typical episode_length.
                     train_samples = self.memory.sample(batch_size=self.batch_size)
-                    q1, q2 = self.train(q1, q2, train_samples, optimizer)
+                    q1, q2, loss = self.train(q1, q2, train_samples, optimizer)
+                    losses.append(loss)
 
-            if iteration % 100 == 0:
-                plot_and_print(rewards, smooth_length=50)
+            if (iteration % 100 == 0) and (len(self.memory) > self.num_burn_in):
+                plot_and_print(rewards, losses)
 
     def train(self, q1, q2, train_samples, optimizer):
         """
@@ -140,32 +142,53 @@ class DQNAgent:
         q1.eval()
         q2.eval()
 
-        return q1, q2
+        return q1, q2, loss.cpu().item()
+
+    # def evaluate(self, env, num_episodes, max_episode_length=None):
+    #     """Test your agent with a provided environment.
+    #
+    #     You shouldn't update your network parameters here. Also if you
+    #     have any layers that vary in behavior between train/test time
+    #     (such as dropout or batch norm), you should set them to test.
+    #
+    #     Basically run your policy on the environment and collect stats
+    #     like cumulative reward, average episode length, etc.
+    #
+    #     You can also call the render function here if you want to
+    #     visually inspect your policy.
+    #     """
+    #     for _ in range(num_episodes):
+    #         for _ in range(max_episode_length):
+    #             q_values = q1(torch.from_numpy(state.astype(np.float64)).cuda().unsqueeze(0).permute(0, 3, 1, 2))
+    #             action = self.policy.select_action(q_values.cpu().detach().numpy())
+    #             new_state, reward, done, info = env.step(action)
+    #             self.memory.append(state, action, reward)
+    #             reward_per_episode.append(reward)
+    #             if done or (episode == max_episode_length - 1):
+    #                 self.memory.end_episode(new_state, done)
+    #                 rewards.append(np.sum(reward_per_episode))
+    #                 break
+    #             state = new_state
 
 
-def plot_and_print(rewards, smooth_length):
-    fig = plt.figure()
-    ax1 = fig.add_subplot(111)
-    ax2 = ax1.twinx()
-    l = smooth_length # len(train_loader)
-    ax2.plot(np.convolve(np.array(rewards), np.ones(l) / l)[l:-l], color='r')
-    print('rewards', '%.5g' % (np.mean(rewards[-l:])))
-    ax2.legend(['rewards'], loc='upper right')
-    plt.savefig('trainning_curve.png')
-    plt.close()
+def plot_and_print(rewards, losses):
+                    fig = plt.figure()
+                    ax1 = fig.add_subplot(111)
+                    ax2 = ax1.twinx()
+                    l = 50  # len(train_loader)
+                    ax2.plot(np.convolve(np.array(rewards), np.ones(l) / l)[l:-l], color='r')
+                    print('rewards', '%.5g' % (np.mean(rewards[-l:])))
+                    ax2.legend(['rewards'], loc='upper right')
+                    plt.savefig('rewards.png')
+                    plt.close()
 
+                    fig = plt.figure()
+                    ax1 = fig.add_subplot(111)
+                    ax2 = ax1.twinx()
+                    l = 10  # len(train_loader)
+                    ax2.plot(np.convolve(np.array(losses), np.ones(l) / l)[l:-l], color='b')
+                    print('loss', '%.5g' % (np.mean(losses[-l:])))
+                    ax2.legend(['loss'], loc='upper right')
+                    plt.savefig('loss.png')
+                    plt.close()
 
-def evaluate(self, env, num_episodes, max_episode_length=None):
-        """Test your agent with a provided environment.
-        
-        You shouldn't update your network parameters here. Also if you
-        have any layers that vary in behavior between train/test time
-        (such as dropout or batch norm), you should set them to test.
-
-        Basically run your policy on the environment and collect stats
-        like cumulative reward, average episode length, etc.
-
-        You can also call the render function here if you want to
-        visually inspect your policy.
-        """
-        pass
