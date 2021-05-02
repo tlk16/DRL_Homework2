@@ -72,7 +72,7 @@ class DQNAgent:
         state = env.reset()
         q1 = copy.deepcopy(self.q_network.cpu()).cuda()  # For DQN， q1 is the online network
         q2 = copy.deepcopy(self.q_network.cpu()).cuda()  # For DQN, q2 is the target network
-        optimizer = torch.optim.Adam(q1.parameters(), lr=0.0001, eps=1.5e-4)  # todo: double DQN, lr TUNING
+        optimizer = torch.optim.Adam(q1.parameters(), lr=0.0002, eps=1.5e-4)  # todo: double DQN, lr TUNING
         # --------------------------------------------------------------------------------------
 
         for n_step in tqdm.tqdm(range(num_steps)):
@@ -120,20 +120,20 @@ class DQNAgent:
         terminal = torch.from_numpy(np.array([sample[4] for sample in train_samples]).astype(np.int64)).cuda()
         # terminal [batch_size,]
 
-        # q_target = torch.where(terminal == 0,
-        #                        rt + self.gamma * torch.max(q2(s_prime), dim=-1)[0],
-        #                        rt)  # [batch_size]
+        q_target = torch.where(terminal == 0,
+                               rt + self.gamma * torch.max(q2(s_prime), dim=-1)[0],
+                               rt)  # [batch_size]
 
-        q_target = self.gamma * torch.max(q2(s_prime), dim=-1)[0] * (1. - terminal) + rt  # [batch_size]
+        # q_target = self.gamma * torch.max(q2(s_prime), dim=-1)[0] * (1. - terminal) + rt  # [batch_size]
         q_value = torch.gather(input=q1(st), dim=-1, index=at.unsqueeze(-1))  # [batch_size, 1]
         loss = torch.nn.SmoothL1Loss()(q_value.float(), q_target.detach().float().unsqueeze(1))
 
-        # torch.mean((q_value - q_target.detach()) ** 2)
+        # torch.mean((q_value - q_target.detach()) ** 2)  # todo: Here was a fatal bug.
 
         optimizer.zero_grad()
         loss.backward()
-        for param in q1.parameters():
-            param.grad.data.clamp_(-1, 1)
+        # for param in q1.parameters():
+        #     param.grad.data.clamp_(-1, 1)
         optimizer.step()
 
         # DQN: update the target network(q2) per target_update_freq steps
