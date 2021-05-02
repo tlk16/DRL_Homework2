@@ -72,7 +72,7 @@ class DQNAgent:
         state = env.reset()
         q1 = copy.deepcopy(self.q_network.cpu()).cuda()  # For DQN， q1 is the online network
         q2 = copy.deepcopy(self.q_network.cpu()).cuda()  # For DQN, q2 is the target network
-        optimizer = torch.optim.Adam(q1.parameters(), lr=0.0000625, eps=1.5e-4)  # todo: double DQN, lr TUNING
+        optimizer = torch.optim.Adam(q1.parameters(), lr=0.0001, eps=1.5e-4)  # todo: double DQN, lr TUNING
         # --------------------------------------------------------------------------------------
 
         for n_step in tqdm.tqdm(range(num_steps)):
