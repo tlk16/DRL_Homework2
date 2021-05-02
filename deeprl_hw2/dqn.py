@@ -31,6 +31,8 @@ class DQNAgent:
       train the Q-Network per (train_freq) steps.
     batch_size: int
       How many samples in each mini-batch.
+    target_type: str
+      no-fixing | fixing | double
     """
     def __init__(self,
                  q_network,
@@ -40,15 +42,17 @@ class DQNAgent:
                  target_update_freq,
                  num_burn_in,
                  train_freq,
-                 batch_size):
+                 batch_size,
+                 target_type):
         self.q_network = q_network
         self.memory = memory
         self.policy = policy
         self.gamma = gamma
-        self.target_update_freq = target_update_freq
+        self.target_update_freq = target_update_freq  # only used by DQN with target
         self.num_burn_in = num_burn_in
         self.train_freq = train_freq
         self.batch_size = batch_size
+        self.target_type = target_type
 
         self.train_num = 0  # toe record num of self.train is called
 
@@ -65,6 +69,7 @@ class DQNAgent:
 
         # Initialize --------------------------------------------------------------------------
         losses = []   # record loss for plot
+        rewards = []  # record rewards(evaluate) for plot
 
         self.memory.clear()
         self.policy.reset()
@@ -72,7 +77,7 @@ class DQNAgent:
         state = env.reset()
         q1 = copy.deepcopy(self.q_network.cpu()).cuda()  # For DQN， q1 is the online network
         q2 = copy.deepcopy(self.q_network.cpu()).cuda()  # For DQN, q2 is the target network
-        optimizer = torch.optim.Adam(q1.parameters(), lr=0.0002, eps=1.5e-4)  # todo: double DQN, lr TUNING
+        optimizer = torch.optim.Adam(q1.parameters(), lr=0.0001, eps=1.5e-4)  # todo: double DQN, lr TUNING
         # --------------------------------------------------------------------------------------
 
         for n_step in tqdm.tqdm(range(num_steps)):
@@ -95,8 +100,14 @@ class DQNAgent:
                 plot_and_print(losses)
 
             if n_step % 100000 == 0:
-                evaluate_rewards = self.evaluate(env_raw, q1, num_episodes=20)
+                evaluate_rewards = self.evaluate(env_raw, q1, num_episodes=50)
                 print('evaluate', evaluate_rewards, evaluate_rewards.mean())
+                rewards.append(evaluate_rewards.mean())
+
+        evaluate_rewards_final = self.evaluate(env_raw, q1, num_episodes=100)
+        print('final', np.array(evaluate_rewards_final).std(), np.array(evaluate_rewards_final).mean())
+        np.save('rewards.npy', np.array(rewards))
+        np.save('rewards_final.npy', np.array(evaluate_rewards_final))
 
     def train(self, q1, q2, train_samples, optimizer):
         """
@@ -120,9 +131,20 @@ class DQNAgent:
         terminal = torch.from_numpy(np.array([sample[4] for sample in train_samples]).astype(np.int64)).cuda()
         # terminal [batch_size,]
 
-        q_target = torch.where(terminal == 0,
-                               rt + self.gamma * torch.max(q2(s_prime), dim=-1)[0],
-                               rt)  # [batch_size]
+        if self.target_type == 'no-fixing':
+            q_target = torch.where(terminal == 0,
+                                   rt + self.gamma * torch.max(q1(s_prime), dim=-1)[0],
+                                   rt)  # [batch_size]
+        elif self.target_type == 'fixing':
+            q_target = torch.where(terminal == 0,
+                                   rt + self.gamma * torch.max(q2(s_prime), dim=-1)[0],
+                                   rt)  # [batch_size]
+        else:
+            assert self.target_type == 'double'
+            max_a = torch.argmax(q1(s_prime), dim=-1)  # [batch_size,]
+            q_target = torch.where(terminal == 0,
+                                   rt + self.gamma * torch.gather(input=q2(st), dim=-1, index=max_a.unsqueeze(-1)).squeeze(-1),
+                                   rt)  # [batch_size]
 
         # q_target = self.gamma * torch.max(q2(s_prime), dim=-1)[0] * (1. - terminal) + rt  # [batch_size]
         q_value = torch.gather(input=q1(st), dim=-1, index=at.unsqueeze(-1))  # [batch_size, 1]
@@ -132,8 +154,8 @@ class DQNAgent:
 
         optimizer.zero_grad()
         loss.backward()
-        # for param in q1.parameters():
-        #     param.grad.data.clamp_(-1, 1)
+        for param in q1.parameters():
+            param.grad.data.clamp_(-1, 1)  # todo
         optimizer.step()
 
         # DQN: update the target network(q2) per target_update_freq steps

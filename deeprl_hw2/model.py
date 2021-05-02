@@ -13,19 +13,19 @@ class DQN(nn.Module):  # todo: BN or not?
         """
         super(DQN, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=8, stride=4)
-        self.bn1 = nn.BatchNorm2d(32)
+        # self.bn1 = nn.BatchNorm2d(32)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.bn2 = nn.BatchNorm2d(64)
+        # self.bn2 = nn.BatchNorm2d(64)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
-        self.bn3 = nn.BatchNorm2d(64)
+        # self.bn3 = nn.BatchNorm2d(64)
         self.fc4 = nn.Linear(7 * 7 * 64, 512)
         self.head = nn.Linear(512, n_actions)
 
     def forward(self, x):
         x = x.float() / 255
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
         x = F.relu(self.fc4(x.contiguous().view(x.shape[0], -1)))
         return self.head(x)
 
@@ -43,6 +43,7 @@ class LinearQN(nn.Module):
 
     def forward(self, x):
         x = x.float() / 255
+        x = x.contiguous().view(x.shape[0], -1)
         return self.fc(x)
 
 
@@ -56,23 +57,23 @@ class DuelDQN(nn.Module):  # todo: BN or not?
         """
         super(DuelDQN, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=8, stride=4)
-        self.bn1 = nn.BatchNorm2d(32)
+        # self.bn1 = nn.BatchNorm2d(32)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.bn2 = nn.BatchNorm2d(64)
+        # self.bn2 = nn.BatchNorm2d(64)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
-        self.bn3 = nn.BatchNorm2d(64)
-        self.fc4 = nn.Linear(7 * 7 * 64, 512)
-        self.action_head = nn.Linear(512, n_actions)
-        self.value_head = nn.Linear(512, 1)
+        # self.bn3 = nn.BatchNorm2d(64)
+        self.action_head = nn.Sequential(nn.Linear(7 * 7 * 64, 512), nn.ReLU(), nn.Linear(512, n_actions))
+        self.value_head = nn.Sequential(nn.Linear(7 * 7 * 64, 512), nn.ReLU(), nn.Linear(512, 1))
 
     def forward(self, x):
         x = x.float() / 255
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
         x = x.contiguous().view(x.shape[0], -1)
-        x = F.relu(self.fc4(x))
-        return self.action_head(x), self.value_head(x)
+        value = self.value_head(x)
+        action_v = self.action_head(x)
+        return value + action_v - action_v.mean(dim=-1)
 
 
 

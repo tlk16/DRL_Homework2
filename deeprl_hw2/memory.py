@@ -91,6 +91,14 @@ class ReplayMemory:
         self.next_index = (self.next_index + 1) % self.max_size
 
     def sample(self, batch_size):
+        if (batch_size == 1) and self.max_size == 2:
+            # todo: no memory in fact
+            index = self.next_index
+            if not (len(self.memory[index]) == 3):
+                index = (index + 1) % self.max_size  # todo
+            terminal = len(self.memory[(index + 1) % self.max_size]) == 2
+            return [self.memory[index] + [self.memory[(index + 1) % self.max_size][0], terminal]]
+
         if len(self.memory[-1]) > 0:
             # the memory is full, so each index is legal for sampling
             max_index = self.max_size - 1 - 1

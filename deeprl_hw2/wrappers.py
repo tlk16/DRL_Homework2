@@ -261,6 +261,7 @@ if __name__ == "__main__":
     # test wrappers
     env_raw = make_atari('SpaceInvadersNoFrameskip-v4')
     env = wrap_deepmind(env_raw, frame_stack=True, episode_life=True, clip_rewards=True, scale=False)
+    env = gym.wrappers.Monitor(env, '.', force=True)
     env.reset()
     print(env.action_space)
     print(env.observation_space)
