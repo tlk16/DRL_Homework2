@@ -10,7 +10,7 @@ import torch
 
 from deeprl_hw2.dqn import DQNAgent
 from deeprl_hw2.wrappers import wrap_deepmind, make_atari
-from deeprl_hw2.model import Model
+from deeprl_hw2.model import DQN
 from deeprl_hw2.memory import ReplayMemory
 from deeprl_hw2.policy import LinearDecayGreedyEpsilonPolicy
 
@@ -37,7 +37,7 @@ def main():  # noqa: D103
 
     n_actions = env.action_space.n  # n = 6 for SpaceInvaders-v0
 
-    model = Model(in_channels=4, n_actions=n_actions)
+    model = DQN(in_channels=4, n_actions=n_actions)
     memory = ReplayMemory(max_size=args.memory_size)
     policy = LinearDecayGreedyEpsilonPolicy(n_actions=n_actions, start_value=1, end_value=0.1, num_steps=1000000)
     agent = DQNAgent(q_network=model, memory=memory, gamma=0.99, target_update_freq=1500,
