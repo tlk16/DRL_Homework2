@@ -7,6 +7,8 @@ import torch
 import matplotlib.pyplot as plt
 import gym
 
+from deeprl_hw2.wrappers import wrap_deepmind
+
 
 class DQNAgent:
     """Class implementing DQN.
@@ -50,7 +52,7 @@ class DQNAgent:
 
         self.train_num = 0  # toe record num of self.train is called
 
-    def fit(self, env, num_iterations, max_episode_length=None):
+    def fit(self, env_raw, num_steps):
         """Fit the model to the provided environment.
 
         Parameters
@@ -59,50 +61,46 @@ class DQNAgent:
           wrapped Atari environment.
         num_iterations: int
           How many episodes to perform.
-        max_episode_length: int
-          How long a single episode should last before the agent
-          resets.
         """
 
         # Initialize --------------------------------------------------------------------------
-        rewards = []  # record rewards for plot
         losses = []   # record loss for plot
 
         self.memory.clear()
         self.policy.reset()
+        env = wrap_deepmind(env_raw, frame_stack=True, episode_life=True, clip_rewards=True, scale=False)
+        state = env.reset()
         q1 = copy.deepcopy(self.q_network.cpu()).cuda()  # For DQN， q1 is the online network
         q2 = copy.deepcopy(self.q_network.cpu()).cuda()  # For DQN, q2 is the target network
         optimizer = torch.optim.Adam(q1.parameters(), lr=0.0000625, eps=1.5e-4)  # todo: double DQN, lr TUNING
         # --------------------------------------------------------------------------------------
 
-        for iteration in tqdm.tqdm(range(num_iterations)):
-            state = env.reset()
-            reward_per_episode = []
-            for episode in range(max_episode_length):
-                # todo: use q1 or q2 to choose actions
-                q_values = q1(torch.from_numpy(state.astype(np.float64)).cuda().unsqueeze(0).permute(0, 3, 1, 2))
-                action = self.policy.select_action(q_values.cpu().detach().numpy())
-                new_state, reward, done, info = env.step(action)
-                self.memory.append(state, action, reward)
-                reward_per_episode.append(reward)
-                if done or (episode == max_episode_length - 1):
-                    self.memory.end_episode(new_state, done)
-                    rewards.append(np.sum(reward_per_episode))
-                    break
-                state = new_state
+        for n_step in tqdm.tqdm(range(num_steps)):
+            q_values = q1(torch.from_numpy(state.astype(np.float64)).cuda().unsqueeze(0).permute(0, 3, 1, 2))
+            action = self.policy.select_action(q_values.cpu().detach().numpy())
+            new_state, reward, done, info = env.step(action)
+            self.memory.append(state, action, reward)
+            state = new_state
 
-                if (len(self.memory) > self.num_burn_in) and (episode % self.train_freq == 0):
-                    # todo: episode can't be larger than typical episode_length.
-                    train_samples = self.memory.sample(batch_size=self.batch_size)
-                    q1, q2, loss = self.train(q1, q2, train_samples, optimizer)
-                    losses.append(loss)
+            if done:
+                self.memory.end_episode(new_state, done)
+                state = env.reset()
 
-            if (iteration % 100 == 0) and (len(self.memory) > self.num_burn_in):
-                plot_and_print(rewards, losses)
+            if (len(self.memory) > self.num_burn_in) and (n_step % self.train_freq == 0):
+                train_samples = self.memory.sample(batch_size=self.batch_size)
+                q1, q2, loss = self.train(q1, q2, train_samples, optimizer)
+                losses.append(loss)
+
+            if (n_step % 100000 == 0) and (len(self.memory) > self.num_burn_in):
+                plot_and_print(losses)
+
+            if n_step % 100000 == 0:
+                evaluate_rewards = self.evaluate(env_raw, q1, num_episodes=20)
+                print('evaluate', evaluate_rewards, evaluate_rewards.mean())
 
     def train(self, q1, q2, train_samples, optimizer):
         """
-        one gradient descent step for DQN
+        one gradient descent step for DQN, update target network periodically
         :param q1: q_network with gradient descent;
         :param q2: target network
         :param train_samples: list of [st, at, rt, st+1(s'), terminal]
@@ -144,51 +142,38 @@ class DQNAgent:
 
         return q1, q2, loss.cpu().item()
 
-    # def evaluate(self, env, num_episodes, max_episode_length=None):
-    #     """Test your agent with a provided environment.
-    #
-    #     You shouldn't update your network parameters here. Also if you
-    #     have any layers that vary in behavior between train/test time
-    #     (such as dropout or batch norm), you should set them to test.
-    #
-    #     Basically run your policy on the environment and collect stats
-    #     like cumulative reward, average episode length, etc.
-    #
-    #     You can also call the render function here if you want to
-    #     visually inspect your policy.
-    #     """
-    #     for _ in range(num_episodes):
-    #         for _ in range(max_episode_length):
-    #             q_values = q1(torch.from_numpy(state.astype(np.float64)).cuda().unsqueeze(0).permute(0, 3, 1, 2))
-    #             action = self.policy.select_action(q_values.cpu().detach().numpy())
-    #             new_state, reward, done, info = env.step(action)
-    #             self.memory.append(state, action, reward)
-    #             reward_per_episode.append(reward)
-    #             if done or (episode == max_episode_length - 1):
-    #                 self.memory.end_episode(new_state, done)
-    #                 rewards.append(np.sum(reward_per_episode))
-    #                 break
-    #             state = new_state
+    def evaluate(self, env, q1, num_episodes):
+        """Test your agent with a provided environment.
+        """
+        env = wrap_deepmind(env, frame_stack=True, episode_life=True, clip_rewards=False, scale=False)
+        state = env.reset()
+
+        rewards = np.zeros((num_episodes,))
+        n_episode = 0
+        while True:
+            q_values = q1(torch.from_numpy(state.astype(np.float64)).cuda().unsqueeze(0).permute(0, 3, 1, 2))
+            action = self.policy.select_action(q_values.cpu().detach().numpy(), is_training=False)
+            new_state, reward, done, info = env.step(action)
+            state = new_state
+            rewards[n_episode] += reward
+
+            if done:
+                state = env.reset()
+                n_episode += 1
+                if n_episode >= num_episodes:
+                    break
+
+        return rewards
 
 
-def plot_and_print(rewards, losses):
-                    fig = plt.figure()
-                    ax1 = fig.add_subplot(111)
-                    ax2 = ax1.twinx()
-                    l = 50  # len(train_loader)
-                    ax2.plot(np.convolve(np.array(rewards), np.ones(l) / l)[l:-l], color='r')
-                    print('rewards', '%.5g' % (np.mean(rewards[-l:])))
-                    ax2.legend(['rewards'], loc='upper right')
-                    plt.savefig('rewards.png')
-                    plt.close()
-
-                    fig = plt.figure()
-                    ax1 = fig.add_subplot(111)
-                    ax2 = ax1.twinx()
-                    l = 10  # len(train_loader)
-                    ax2.plot(np.convolve(np.array(losses), np.ones(l) / l)[l:-l], color='b')
-                    print('loss', '%.5g' % (np.mean(losses[-l:])))
-                    ax2.legend(['loss'], loc='upper right')
-                    plt.savefig('loss.png')
-                    plt.close()
+def plot_and_print(losses):
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    ax2 = ax1.twinx()
+    l = 50000  # len(train_loader)
+    ax2.plot(np.convolve(np.array(losses), np.ones(l) / l)[l:-l], color='b')
+    print('loss', '%.5g' % (np.mean(losses[-l:])))
+    ax2.legend(['loss'], loc='upper right')
+    plt.savefig('loss.png')
+    plt.close()
 

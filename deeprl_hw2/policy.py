@@ -58,6 +58,7 @@ class LinearDecayGreedyEpsilonPolicy(Policy):
           The Q-values for each action.
         is_training: bool, optional
           If true then parameter will be decayed. Defaults to true.
+          If False, epsilon = 0.05
 
         Returns
         -------
@@ -67,7 +68,7 @@ class LinearDecayGreedyEpsilonPolicy(Policy):
         if is_training and self.epsilon > self.end_value:
             self.epsilon = self.epsilon - self.delta
 
-        if random.random() < self.epsilon:
+        if (is_training and random.random() < self.epsilon) or (not is_training and random.random() < 0.05):
             return random.randint(0, self.n_actions - 1)
         else:
             return q_values.squeeze().argmax(axis=0).item()

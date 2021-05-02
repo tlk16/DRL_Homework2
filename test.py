@@ -7,9 +7,9 @@ import random
 import numpy as np
 import gym
 import torch
-
+import matplotlib.pyplot as plt
 from deeprl_hw2.dqn import DQNAgent
-from deeprl_hw2.wrappers import wrap_deepmind, make_atari
+from deeprl_hw2.wrappers import wrap_deepmind
 from deeprl_hw2.model import Model
 from deeprl_hw2.memory import ReplayMemory
 from deeprl_hw2.policy import LinearDecayGreedyEpsilonPolicy
@@ -33,18 +33,16 @@ def main():  # noqa: D103
 
     seed_all(args.seed)
 
-    env = make_atari('SpaceInvadersNoFrameskip-v4')
-    # env = wrap_deepmind(env_raw, frame_stack=True, episode_life=True, clip_rewards=True, scale=False)
-
+    env = gym.make(args.env)
     n_actions = env.action_space.n  # n = 6 for SpaceInvaders-v0
-
-    model = Model(in_channels=4, n_actions=n_actions)
-    memory = ReplayMemory(max_size=args.memory_size)
-    policy = LinearDecayGreedyEpsilonPolicy(n_actions=n_actions, start_value=1, end_value=0.1, num_steps=1000000)
-    agent = DQNAgent(q_network=model, memory=memory, gamma=0.99, target_update_freq=2500,
-                     num_burn_in=50000, batch_size=32, policy=policy, train_freq=4)
-    agent.fit(env, num_steps=50000000)
-
+    env = wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=True, scale=False)  # todo
+    env.reset()
+    n_frame , _, _, _ = env.step(0)
+    n_frame1,_,_,_ = env.step(0)
+    print(n_frame[:,:,0])
+    print(np.sum(n_frame[:,:,0]-n_frame[:,:,0]))
+    plt.imshow(n_frame[:,:,1])
+    plt.show()
 
 if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = '1'
