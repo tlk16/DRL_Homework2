@@ -99,7 +99,7 @@ class ReplayMemory:
         samples = []
         while len(samples) < batch_size:
             index = random.randint(0, max_index)
-            if len(self.memory[index]) == 3:
+            if (len(self.memory[index]) == 3) and ((index + 1) % self.max_size != self.next_index):
                 terminal = len(self.memory[(index + 1) % self.max_size]) == 2
                 samples.append(self.memory[index] + [self.memory[(index + 1) % self.max_size][0], terminal])
                 # [st, at, rt] + [st+1, terminal])

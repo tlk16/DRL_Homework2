@@ -120,11 +120,15 @@ class DQNAgent:
         terminal = torch.from_numpy(np.array([sample[4] for sample in train_samples]).astype(np.int64)).cuda()
         # terminal [batch_size,]
 
-        q_target = torch.where(terminal == 0,
-                               rt + self.gamma * torch.max(q2(s_prime), dim=-1)[0],
-                               rt)  # [batch_size]
-        q_value = torch.gather(input=q1(st), dim=-1, index=at.unsqueeze(-1))
-        loss = torch.mean((q_value - q_target.detach()) ** 2)
+        # q_target = torch.where(terminal == 0,
+        #                        rt + self.gamma * torch.max(q2(s_prime), dim=-1)[0],
+        #                        rt)  # [batch_size]
+
+        q_target = self.gamma * torch.max(q2(s_prime), dim=-1)[0] * (1. - terminal) + rt  # [batch_size]
+        q_value = torch.gather(input=q1(st), dim=-1, index=at.unsqueeze(-1))  # [batch_size, 1]
+        loss = torch.nn.SmoothL1Loss()(q_value.float(), q_target.detach().float().unsqueeze(1))
+
+        # torch.mean((q_value - q_target.detach()) ** 2)
 
         optimizer.zero_grad()
         loss.backward()
@@ -145,7 +149,7 @@ class DQNAgent:
     def evaluate(self, env, q1, num_episodes):
         """Test your agent with a provided environment.
         """
-        env = wrap_deepmind(env, frame_stack=True, episode_life=True, clip_rewards=False, scale=False)
+        env = wrap_deepmind(env, frame_stack=True, episode_life=False, clip_rewards=False, scale=False)
         state = env.reset()
 
         rewards = np.zeros((num_episodes,))
@@ -156,6 +160,7 @@ class DQNAgent:
             new_state, reward, done, info = env.step(action)
             state = new_state
             rewards[n_episode] += reward
+            # env.render()
 
             if done:
                 state = env.reset()
