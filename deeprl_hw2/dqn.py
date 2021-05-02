@@ -1,5 +1,6 @@
 """Main DQN agent."""
 
+import os
 import copy
 import tqdm
 import numpy as np
@@ -43,7 +44,8 @@ class DQNAgent:
                  num_burn_in,
                  train_freq,
                  batch_size,
-                 target_type):
+                 target_type,
+                 save_name):
         self.q_network = q_network
         self.memory = memory
         self.policy = policy
@@ -53,6 +55,7 @@ class DQNAgent:
         self.train_freq = train_freq
         self.batch_size = batch_size
         self.target_type = target_type
+        self.save_name = save_name
 
         self.train_num = 0  # toe record num of self.train is called
 
@@ -100,14 +103,15 @@ class DQNAgent:
                 plot_and_print(losses)
 
             if n_step % 100000 == 0:
-                evaluate_rewards = self.evaluate(env_raw, q1, num_episodes=50)
+                evaluate_rewards = self.evaluate(env_raw, q1, num_episodes=50, n_step=n_step)
                 print('evaluate', evaluate_rewards, evaluate_rewards.mean())
                 rewards.append(evaluate_rewards.mean())
+                np.save(self.save_name + '/' + 'rewards.npy', np.array(rewards))
+                torch.save(q1.state_dict(), self.save_name + '/' + 'model.pth')
 
-        evaluate_rewards_final = self.evaluate(env_raw, q1, num_episodes=100)
+        evaluate_rewards_final = self.evaluate(env_raw, q1, num_episodes=100, n_step=n_step)
         print('final', np.array(evaluate_rewards_final).std(), np.array(evaluate_rewards_final).mean())
-        np.save('rewards.npy', np.array(rewards))
-        np.save('rewards_final.npy', np.array(evaluate_rewards_final))
+        np.save(self.save_name + '/' + 'rewards_final.npy', np.array(evaluate_rewards_final))
 
     def train(self, q1, q2, train_samples, optimizer):
         """
@@ -118,6 +122,8 @@ class DQNAgent:
         :param optimizer torch.optim
         :return: q1, q2
         """
+        if len(train_samples) == 0:
+            return q1, q2, 0
         q1.train()
         q2.train()
         st = torch.from_numpy(np.array([sample[0] for sample in train_samples]).astype(np.float64).transpose((0, 3, 1, 2))).cuda()
@@ -168,10 +174,12 @@ class DQNAgent:
 
         return q1, q2, loss.cpu().item()
 
-    def evaluate(self, env, q1, num_episodes):
+    def evaluate(self, env, q1, num_episodes, n_step):
         """Test your agent with a provided environment.
         """
         env = wrap_deepmind(env, frame_stack=True, episode_life=False, clip_rewards=False, scale=False)
+        os.mkdir(self.save_name + '/' + 'video' + str(n_step))  # n_step is just used to specify the save dir
+        env = gym.wrappers.Monitor(env, self.save_name + '/' + 'video' + str(n_step), force=True)
         state = env.reset()
 
         rewards = np.zeros((num_episodes,))

@@ -95,7 +95,7 @@ class ReplayMemory:
             # todo: no memory in fact
             index = self.next_index
             if not (len(self.memory[index]) == 3):
-                index = (index + 1) % self.max_size  # todo
+                return []
             terminal = len(self.memory[(index + 1) % self.max_size]) == 2
             return [self.memory[index] + [self.memory[(index + 1) % self.max_size][0], terminal]]
 

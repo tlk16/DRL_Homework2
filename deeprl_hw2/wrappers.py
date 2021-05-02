@@ -270,7 +270,7 @@ if __name__ == "__main__":
         action = env.action_space.sample()
         obs, reward, done, info = env.step(action)  # take a random action
         env.render()
-        print(action, np.array(obs).shape, np.array(obs).dtype, reward, done, info)
         if done:
+            print(action, np.array(obs).shape, np.array(obs).dtype, reward, done, info)
             env.reset()
     env.close()
