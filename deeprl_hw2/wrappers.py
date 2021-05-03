@@ -2,7 +2,7 @@
 Adapted from OpenAI Baselines
 https://github.com/openai/baselines/blob/master/baselines/common/atari_wrappers.py
 
-Wrappers are used to wrap frames into 84 * 84 and stack 4 frames together.
+Wrappers are used to wrap frames into 84 * 84 and stack 4 frames together. In place of preprocessing
 """
 
 import numpy as np
@@ -253,7 +253,7 @@ def wrap_deepmind(env, episode_life=False, clip_rewards=False, frame_stack=False
     if clip_rewards:
         env = ClipRewardEnv(env)
     if frame_stack:
-        env = FrameStack(env, 4)  # todo: 4 or 5 ?
+        env = FrameStack(env, 4)
     return env
 
 

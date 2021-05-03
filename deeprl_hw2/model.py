@@ -6,7 +6,7 @@ import torch.nn.functional as F
 class DQN(nn.Module):  # todo: BN or not?
     def __init__(self, in_channels=4, n_actions=6):
         """
-        Initialize Deep Q Network
+        Deep Q Network
         Args:
             in_channels (int): number of input channels
             n_actions (int): number of outputs
@@ -33,7 +33,7 @@ class DQN(nn.Module):  # todo: BN or not?
 class LinearQN(nn.Module):
     def __init__(self, in_channels=4, n_actions=6):
         """
-        Initialize Deep Q Network
+        Linear Q Network
         Args:
             in_channels (int): number of input channels
             n_actions (int): number of outputs
@@ -50,7 +50,7 @@ class LinearQN(nn.Module):
 class DuelDQN(nn.Module):  # todo: BN or not?
     def __init__(self, in_channels=4, n_actions=6):
         """
-        Initialize Deep Q Network
+        Dueling Deep Q Network
         Args:
             in_channels (int): number of input channels
             n_actions (int): number of outputs
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     a = torch.randn(50, 4, 84, 84)
     b = model(a)
     print(b.shape)
-    # todo: better model
+
 
 
 

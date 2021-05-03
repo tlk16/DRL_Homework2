@@ -37,7 +37,7 @@ def main():  # noqa: D103
 
     seed_all(args.seed)
 
-    env = make_atari('SpaceInvadersNoFrameskip-v4')
+    env = make_atari('SpaceInvadersNoFrameskip-v4')  # NoFrameskip-v4 -> make_atari, the same as v0
 
     n_actions = env.action_space.n  # n = 6 for SpaceInvaders-v0
 

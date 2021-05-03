@@ -156,8 +156,6 @@ class DQNAgent:
         q_value = torch.gather(input=q1(st), dim=-1, index=at.unsqueeze(-1))  # [batch_size, 1]
         loss = torch.nn.SmoothL1Loss()(q_value.float(), q_target.detach().float().unsqueeze(1))
 
-        # torch.mean((q_value - q_target.detach()) ** 2)  # todo: Here was a fatal bug.
-
         optimizer.zero_grad()
         loss.backward()
         for param in q1.parameters():
@@ -202,6 +200,7 @@ class DQNAgent:
 
 
 def plot_and_print(losses):
+    # plot and print losses
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
     ax2 = ax1.twinx()

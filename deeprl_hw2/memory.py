@@ -92,7 +92,7 @@ class ReplayMemory:
 
     def sample(self, batch_size):
         if (batch_size == 1) and self.max_size == 2:
-            # todo: no memory in fact
+            # batch_size == 1 and self.max_size == 2 means no memory in fact
             index = self.next_index
             if not (len(self.memory[index]) == 3):
                 return []

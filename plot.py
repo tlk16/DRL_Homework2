@@ -9,19 +9,19 @@ from deeprl_hw2.policy import LinearDecayGreedyEpsilonPolicy
 from deeprl_hw2.wrappers import wrap_deepmind, make_atari
 
 
-for n_question in [2, 3,  5]:
+for n_question in [2, 3, 4, 5, 6, 7]:
     final_path = 'Question' + str(n_question) + '/rewards_final.npy'
     rewards_final = np.load(final_path)
     print(n_question, rewards_final.shape, rewards_final.std(), rewards_final.mean())
 
-    # curve_path = 'Question' + str(n_question) + '/rewards.npy'
-    # rewards_curve = np.load(curve_path)
-    # plt.figure()
-    # plt.plot([i * 100000 for i in range(len(rewards_curve))], rewards_curve, color='r')
-    # plt.xlabel('Train steps')
-    # plt.ylabel('Rewards per episode')
-    # plt.legend(['Rewards'])
-    # plt.savefig(str(n_question) + '.png', dpi=300)
+    curve_path = 'Question' + str(n_question) + '/rewards.npy'
+    rewards_curve = np.load(curve_path)
+    plt.figure()
+    plt.plot([i * 100000 for i in range(len(rewards_curve))], rewards_curve, color='r')
+    plt.xlabel('Train steps')
+    plt.ylabel('Rewards per episode')
+    plt.legend(['Rewards'])
+    plt.savefig(str(n_question) + '.png', dpi=300)
 
 
 def evaluate_video(env, q1, num_episodes, save_name, policy):
@@ -54,10 +54,10 @@ def evaluate_video(env, q1, num_episodes, save_name, policy):
 env = make_atari('SpaceInvadersNoFrameskip-v4')
 n_actions = env.action_space.n
 policy = LinearDecayGreedyEpsilonPolicy(n_actions=n_actions, start_value=1, end_value=0.1, num_steps=1000000)
-q1 = DQN(in_channels=4, n_actions=n_actions).cuda()
-q1.load_state_dict(torch.load('Question5/model.pth'))
+q1 = DuelDQN(in_channels=4, n_actions=n_actions).cuda()
+# q1.load_state_dict(torch.load('Question4/model.pth'))
 
-evaluate_video(env, q1, num_episodes=1, save_name='q5_video', policy=policy)
+evaluate_video(env, q1, num_episodes=1, save_name='q7_0', policy=policy)
 
 
 
