@@ -73,7 +73,7 @@ class DuelDQN(nn.Module):  # todo: BN or not?
         x = x.contiguous().view(x.shape[0], -1)
         value = self.value_head(x)
         action_v = self.action_head(x)
-        return value + action_v - action_v.mean(dim=-1)
+        return value + action_v - action_v.mean(dim=-1).unsqueeze(-1)
 
 
 

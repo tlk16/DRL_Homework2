@@ -149,7 +149,7 @@ class DQNAgent:
             assert self.target_type == 'double'
             max_a = torch.argmax(q1(s_prime), dim=-1)  # [batch_size,]
             q_target = torch.where(terminal == 0,
-                                   rt + self.gamma * torch.gather(input=q2(st), dim=-1, index=max_a.unsqueeze(-1)).squeeze(-1),
+                                   rt + self.gamma * torch.gather(input=q2(s_prime), dim=-1, index=max_a.unsqueeze(-1)).squeeze(-1),
                                    rt)  # [batch_size]
 
         # q_target = self.gamma * torch.max(q2(s_prime), dim=-1)[0] * (1. - terminal) + rt  # [batch_size]
